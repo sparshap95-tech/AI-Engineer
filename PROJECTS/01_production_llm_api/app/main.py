@@ -3,8 +3,9 @@ import uuid
 import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -62,6 +63,15 @@ async def telemetry_middleware(request: Request, call_next):
     
     logger.info(f"Finished {request.method} {request.url.path} in {duration_ms}ms (status={response.status_code})")
     return response
+
+
+@app.get("/", response_class=HTMLResponse, tags=["Dashboard"])
+async def dashboard():
+    """Serves the interactive frontend control plane & playground."""
+    template_path = Path(__file__).parent / "templates" / "index.html"
+    if template_path.exists():
+        return HTMLResponse(content=template_path.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>Dashboard Loading...</h1>")
 
 
 @app.get("/health", tags=["System"])

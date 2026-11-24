@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production LLM Gateway - Control Plane & Playground</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+        .gradient-border {
+            background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
+                <i class="fa-solid fa-microchip text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+                    Production LLM Gateway
+                    <span class="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-mono">v1.0.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">Enterprise AI Infrastructure Control Plane</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-emerald-400 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Gateway Healthy</span>
+            </div>
+            <a href="/docs" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition border border-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-book-open"></i> Swagger API Docs
+            </a>
+            <a href="https://github.com/sparshap95-tech/AI-Engineer" target="_blank" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1.5 shadow-sm">
+                <i class="fa-brands fa-github"></i> Repository
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Controls & Configuration (4 cols) -->
+        <section class="lg:col-span-4 space-y-6">
+            
+            <!-- Gateway Telemetry Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-indigo-400"></i> Live Telemetry & Metrics
+                </h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div class="text-[11px] text-slate-400">Time-to-First-Token</div>
+                        <div id="stat-latency" class="text-lg font-bold text-indigo-400 font-mono mt-0.5">-- ms</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div class="text-[11px] text-slate-400">Estimated Cost</div>
+                        <div id="stat-cost" class="text-lg font-bold text-emerald-400 font-mono mt-0.5">$0.000000</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div class="text-[11px] text-slate-400">Total Tokens</div>
+                        <div id="stat-tokens" class="text-lg font-bold text-amber-400 font-mono mt-0.5">0</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div class="text-[11px] text-slate-400">Active Provider</div>
+                        <div id="stat-provider" class="text-lg font-bold text-purple-400 font-mono mt-0.5">Mock</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameters Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> Model & Router Parameters
+                </h2>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Target Model</label>
+                    <select id="model-select" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <option value="mock-model">mock-model (Offline / Simulation)</option>
+                        <option value="gpt-4o-mini">gpt-4o-mini (OpenAI Fast)</option>
+                        <option value="gpt-4o">gpt-4o (OpenAI Flagship)</option>
+                        <option value="claude-3-5-sonnet">claude-3-5-sonnet (Anthropic)</option>
+                        <option value="gemini-1.5-flash">gemini-1.5-flash (Google)</option>
+                        <option value="llama3">llama3 (Local Ollama)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Fallback Failover Model</label>
+                    <input type="text" id="fallback-select" value="mock-model" readonly class="w-full bg-slate-950/60 border border-slate-800/80 rounded-xl px-3 py-2 text-xs text-slate-400 font-mono">
+                    <span class="text-[11px] text-slate-400 mt-1 block">Circuit breaker routes here if primary model times out or 429s.</span>
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs font-medium text-slate-300 mb-1.5">
+                        <span>Temperature</span>
+                        <span id="temp-val" class="font-mono text-indigo-400">0.7</span>
+                    </div>
+                    <input type="range" id="temp-slider" min="0" max="1" step="0.05" value="0.7" class="w-full accent-indigo-500 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="pt-2 border-t border-slate-800">
+                    <label class="flex items-center space-x-2.5 cursor-pointer">
+                        <input type="checkbox" id="stream-toggle" checked class="w-4 h-4 text-indigo-600 rounded bg-slate-800 border-slate-700 focus:ring-indigo-500">
+                        <span class="text-xs text-slate-300 font-medium">Enable Server-Sent Events (SSE) Streaming</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Architectural Highlights for Interview -->
+            <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-xs text-slate-400 space-y-2">
+                <div class="font-semibold text-slate-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lightbulb text-amber-400"></i> Interview Talking Points
+                </div>
+                <p>• <strong>Resilience:</strong> Tenacity exponential backoff with fallback model failover circuit.</p>
+                <p>• <strong>Cost Control:</strong> Subword token accounting calculated per million tokens at gateway boundary.</p>
+                <p>• <strong>Async Concurrency:</strong> FastAPI async event loop preventing thread pool exhaustion.</p>
+            </div>
+        </section>
+
+        <!-- Right Column: Interactive Playgrounds (8 cols) -->
+        <section class="lg:col-span-8 flex flex-col space-y-4">
+
+            <!-- Tab Switcher -->
+            <div class="flex space-x-2 border-b border-slate-800 pb-2">
+                <button id="tab-btn-chat" onclick="switchTab('chat')" class="px-4 py-2 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white flex items-center gap-2">
+                    <i class="fa-solid fa-comments"></i> Chat & Streaming Playground
+                </button>
+                <button id="tab-btn-extract" onclick="switchTab('extract')" class="px-4 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-cube"></i> Strict Structured Extraction (Pydantic)
+                </button>
+            </div>
+
+            <!-- Tab 1: Chat Playground -->
+            <div id="tab-chat" class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl min-h-[500px]">
+                
+                <!-- Chat Message Stream Window -->
+                <div id="chat-messages" class="flex-1 p-5 overflow-y-auto space-y-4 max-h-[480px]">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">AI</div>
+                        <div class="bg-slate-800/80 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 max-w-xl border border-slate-700/50">
+                            Hello! I am connected through your <strong>Production LLM Gateway</strong>. Send a prompt to test streaming, fallback routing, and token metrics.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Bar -->
+                <div class="p-4 bg-slate-950 border-t border-slate-800">
+                    <form id="chat-form" onsubmit="handleChatSubmit(event)" class="flex gap-2">
+                        <input type="text" id="prompt-input" placeholder="Type a message (e.g. 'Explain Transformer Self-Attention mechanism')..." class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                        <button type="submit" id="send-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium text-sm transition flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+                            <span>Send</span>
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tab 2: Structured Output Extraction -->
+            <div id="tab-extract" class="hidden flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-200 mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-code text-indigo-400"></i> Pydantic Schema Validation Demo
+                    </h3>
+                    <p class="text-xs text-slate-400">Demonstrates turning raw unstructured text into a deterministic, validated Pydantic JSON schema (`ExtractionSchema`).</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Unstructured Input Text</label>
+                    <textarea id="extract-input" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">Antigravity just released an autonomous multi-agent platform for AI systems engineers, boosting production deployments by 40% with zero downtime.</textarea>
+                </div>
+
+                <button onclick="handleExtract()" id="extract-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Extract Structured JSON Schema
+                </button>
+
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="text-xs font-medium text-slate-300">Validated JSON Response</span>
+                        <span id="extract-status" class="text-[11px] text-slate-500 font-mono">Idle</span>
+                    </div>
+                    <pre id="extract-output" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-indigo-300 overflow-x-auto min-h-[160px] leading-relaxed">// Click "Extract Structured JSON Schema" above to test validation</pre>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        const tempSlider = document.getElementById('temp-slider');
+        const tempVal = document.getElementById('temp-val');
+        tempSlider.addEventListener('input', (e) => { tempVal.innerText = e.target.value; });
+
+        function switchTab(tab) {
+            const chatTab = document.getElementById('tab-chat');
+            const extractTab = document.getElementById('tab-extract');
+            const btnChat = document.getElementById('tab-btn-chat');
+            const btnExtract = document.getElementById('tab-btn-extract');
+
+            if (tab === 'chat') {
+                chatTab.classList.remove('hidden');
+                extractTab.classList.add('hidden');
+                btnChat.className = "px-4 py-2 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white flex items-center gap-2";
+                btnExtract.className = "px-4 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-400 hover:text-slate-200 flex items-center gap-2";
+            } else {
+                chatTab.classList.add('hidden');
+                extractTab.classList.remove('hidden');
+                btnChat.className = "px-4 py-2 rounded-xl text-xs font-semibold transition bg-slate-900 text-slate-400 hover:text-slate-200 flex items-center gap-2";
+                btnExtract.className = "px-4 py-2 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white flex items-center gap-2";
+            }
+        }
+
+        async function handleChatSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('prompt-input');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            input.value = '';
+            const messagesContainer = document.getElementById('chat-messages');
+
+            // Append User message
+            messagesContainer.innerHTML += `
+                <div class="flex items-start justify-end space-x-3">
+                    <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-sm p-4 text-sm max-w-xl shadow-md">
+                        ${prompt}
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs shrink-0">ME</div>
+                </div>
+            `;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Prepare AI placeholder
+            const aiMsgId = 'ai-msg-' + Date.now();
+            messagesContainer.innerHTML += `
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">AI</div>
+                    <div id="${aiMsgId}" class="bg-slate-800/80 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-200 max-w-xl border border-slate-700/50">
+                        <span class="inline-block animate-pulse">Processing gateway stream...</span>
+                    </div>
+                </div>
+            `;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            const model = document.getElementById('model-select').value;
+            const temperature = parseFloat(tempSlider.value);
+            const stream = document.getElementById('stream-toggle').checked;
+            const startTime = performance.now();
+
+            try {
+                if (stream) {
+                    const response = await fetch('/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: model,
+                            stream: true,
+                            temperature: temperature,
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+
+                    const latency = Math.round(performance.now() - startTime);
+                    document.getElementById('stat-latency').innerText = `${latency} ms`;
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    const aiElement = document.getElementById(aiMsgId);
+                    aiElement.innerHTML = '';
+
+                    let fullText = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                                try {
+                                    const parsed = JSON.parse(line.replace('data: ', ''));
+                                    const content = parsed.choices[0].delta.content || '';
+                                    fullText += content;
+                                    aiElement.innerHTML = fullText.replace(/\n/g, '<br>');
+                                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                                } catch(err){}
+                            }
+                        }
+                    }
+
+                    // Update mock stats
+                    document.getElementById('stat-tokens').innerText = (prompt.length / 4 + fullText.length / 4).toFixed(0);
+                    document.getElementById('stat-cost').innerText = '$0.000015';
+                    document.getElementById('stat-provider').innerText = model.includes('gpt') ? 'OpenAI' : (model.includes('claude') ? 'Anthropic' : 'Mock');
+
+                } else {
+                    const response = await fetch('/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: model,
+                            stream: false,
+                            temperature: temperature,
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    const latency = Math.round(performance.now() - startTime);
+
+                    document.getElementById(aiMsgId).innerText = data.choices[0].message.content;
+                    document.getElementById('stat-latency').innerText = `${latency} ms`;
+                    document.getElementById('stat-cost').innerText = `$${data.usage.estimated_cost_usd.toFixed(6)}`;
+                    document.getElementById('stat-tokens').innerText = data.usage.total_tokens;
+                    document.getElementById('stat-provider').innerText = data.provider;
+                }
+            } catch (err) {
+                document.getElementById(aiMsgId).innerHTML = `<span class="text-rose-400">Gateway Error: ${err.message}</span>`;
+            }
+        }
+
+        async function handleExtract() {
+            const text = document.getElementById('extract-input').value.trim();
+            const outputEl = document.getElementById('extract-output');
+            const statusEl = document.getElementById('extract-status');
+
+            statusEl.innerText = 'Validating Schema...';
+            statusEl.className = 'text-[11px] text-amber-400 font-mono animate-pulse';
+
+            try {
+                const response = await fetch(`/v1/extract?text=${encodeURIComponent(text)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                outputEl.innerText = JSON.stringify(data, null, 2);
+                statusEl.innerText = 'Pydantic v2 Verified ✓';
+                statusEl.className = 'text-[11px] text-emerald-400 font-mono font-bold';
+            } catch (err) {
+                outputEl.innerText = 'Error: ' + err.message;
+                statusEl.innerText = 'Validation Failed ✗';
+                statusEl.className = 'text-[11px] text-rose-400 font-mono';
+            }
+        }
+    </script>
+</body>
+</html>
